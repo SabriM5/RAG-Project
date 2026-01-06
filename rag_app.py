@@ -111,11 +111,11 @@ def run_rag():
             break
             
         # Etape 1 : Récupération
-        print("🔍 Recherche des produits...")
+        print("Recherche des produits...")
         top_docs = get_context(query)
         
         # Etape 2 : Génération
-        print("🤖 L'IA réfléchit...")
+        print("L'IA réfléchit...")
         answer = generate_answer(query, top_docs)
         
         print("\n" + "-"*50)
