@@ -18,7 +18,7 @@ LLM_CLIENT = OpenAI(
     base_url='http://localhost:11434/v1', # L'adresse par défaut d'Ollama
     api_key='ollama', # Ollama ne demande pas de vraie clé
 )
-LLM_MODEL_NAME = "mistral" # Assure-toi d'avoir fait 'ollama pull mistral'
+LLM_MODEL_NAME = "tinyllama" # Assure-toi d'avoir fait 'ollama pull mistral'
 
 # Si tu veux utiliser ChatGPT à la place, décommente ça :
 # LLM_CLIENT = OpenAI(api_key="TA-CLE-OPENAI-ICI")
@@ -69,40 +69,36 @@ def get_context(user_query):
     return sorted_hits[:5]
 
 def generate_answer(user_query, context_docs):
-    """
-    Construit le prompt et interroge le LLM.
-    """
     if not context_docs:
-        return "Désolé, je n'ai trouvé aucun produit correspondant dans la base."
+        return "Désolé, je n'ai trouvé aucun produit correspondant."
 
-    # 1. Construction du contexte (le texte que le LLM va lire)
+    # 1. On prépare le contexte (plus propre)
     context_text = ""
     for doc in context_docs:
-        source = doc['_source']
-        context_text += f"- Produit : {source['product_name']}\n"
-        context_text += f"  Nutriscore : {source['nutriscore_grade']}\n"
-        context_text += f"  Ingrédients : {source['ingredients_text']}\n\n"
+        s = doc['_source']
+        context_text += f"Product: {s['product_name']} | Nutriscore: {s['nutriscore_grade']} | Ingredients: {s['ingredients_text'][:200]}...\n"
 
-    # 2. Le Prompt Système (Les instructions pour l'IA)
-    system_prompt = """
-    Tu es un assistant expert en nutrition utilisant les données OpenFoodFacts.
-    Ta mission est de répondre à la question de l'utilisateur en utilisant UNIQUEMENT les informations contextuelles fournies ci-dessous.
-    
-    Règles :
-    1. Si la réponse n'est pas dans le contexte, dis "Je ne sais pas basé sur les documents fournis".
-    2. Cite le nom des produits que tu recommandes.
-    3. Sois synthétique et utile.
-    """
+    # 2. Prompt simplifié (Les petits modèles préfèrent les instructions en Anglais)
+    # On lui dit explicitement de répondre en Français.
+    system_prompt = (
+        "You are a helpful nutrition assistant. "
+        "Answer the user question based ONLY on the Context provided below. "
+        "If the answer is not in the Context, say 'I don't know'. "
+        "Answer in French."
+    )
 
-    # 3. Appel au LLM
+    user_message = f"Context:\n{context_text}\n\nQuestion: {user_query}"
+
     print("Generation de la réponse en cours...")
+    
+    # 3. Appel
     response = LLM_CLIENT.chat.completions.create(
         model=LLM_MODEL_NAME,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Contexte:\n{context_text}\n\nQuestion: {user_query}"}
+            {"role": "user", "content": user_message}
         ],
-        temperature=0.7
+        temperature=0.1 # On baisse la température pour qu'il soit plus factuel/rigoureux
     )
     
     return response.choices[0].message.content
